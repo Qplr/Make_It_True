@@ -1,0 +1,12 @@
+Crossing Wires
+OR Gate
+NOR Gate
+AND Gate
+NAND Gate
+XOR Gate
+XNOR Gate
+Clock
+RS NOR Flip-Flop
+Register
+Shift Register
+8-bit Adder
