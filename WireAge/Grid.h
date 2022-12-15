@@ -2,7 +2,7 @@
 #define RESOURSES "resources/"
 #define EXAMPLESFOLDER "examples/"
 #define EXAMPLESLIST "examples/examples.txt"
-#define FONTFILENAME "resources/comicSans.ttf"
+#define FONTFILENAME "resources/font.ttf"
 #define CONFIGFOLDER "config/"
 #define MENUCONFIG   "config/menuConfig.txt"
 #define WINDOWTITLE "Make It True - "
