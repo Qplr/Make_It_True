@@ -43,7 +43,7 @@ class Grid
 	volatile bool inputActive = false, paused = false, unsaved = false, ticksHappen = true, bufferOverlay = false;
 	volatile float ppu = 20, targetPpu = ppu;
 	float interfaceScale;
-	const int minGridSize = 10, minPpu = 3, maxCopies = 500, tickrateUpdatesPerSec = 5;
+	const int minGridSize = 10, minPpu = 3, maxCopies = 1000, tickrateUpdatesPerSec = 5;
 	Texture textures[TOTAL_BLOCKS];
 	const int TileTextureSize = 20;
 	int selectedBlock = WIRE;
@@ -129,7 +129,7 @@ public:
 	inline void scale(int delta)
 	{
 		Vector2f mousePosUnitsFloat = Vector2f(Mouse::getPosition(window)) / ppu;
-		ppu = max(ppu + delta * sqrt(ppu), float(minPpu));
+		ppu = max(ppu + delta * int(sqrt(ppu)), float(minPpu));
 		camPos += mousePosUnitsFloat - Vector2f(Mouse::getPosition(window)) / ppu;
 		adjustCamPos();
 	}

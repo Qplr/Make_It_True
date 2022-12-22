@@ -970,7 +970,7 @@ void Grid::paste(Vector2i pos, int id)
 
 void Grid::undo()
 {
-	if (copyIndex <= 0 )
+	if (copyIndex <= 0)
 		return;
 	copyIndex--;
 	auto pos = copies.at(copyIndex).second.first, size = copies.at(copyIndex).second.second;
@@ -979,9 +979,10 @@ void Grid::undo()
 	{
 		for (int j = 0; j < size.y; j++)
 		{
-			Tile temp = ar[i][j];
+			swap(ar[i][j], m_grid[i][j]);
+			/*Tile temp = ar[i][j];
 			ar[i][j] = m_grid[i + pos.x][j + pos.y];
-			m_grid[i + pos.x][j + pos.y] = temp;
+			m_grid[i + pos.x][j + pos.y] = temp;*/
 		}
 	}
 	unsaved = true;
@@ -997,9 +998,10 @@ void Grid::redo()
 	{
 		for (int j = 0; j < size.y; j++)
 		{
-			Tile temp = ar[i][j];
+			swap(ar[i][j], m_grid[i][j]);
+			/*Tile temp = ar[i][j];
 			ar[i][j] = m_grid[i + pos.x][j + pos.y];
-			m_grid[i + pos.x][j + pos.y] = temp;
+			m_grid[i + pos.x][j + pos.y] = temp;*/
 		}
 	}
 	copyIndex++;
@@ -1061,8 +1063,8 @@ bool Grid::ser(string filename, bool example)
 			file.open(filename, ios::binary);
 			if (!file.is_open())
 				return false;
-			Vector2i temp = (pos2 - pos1);
-			file.write(chr temp, sizeof(selectSize));
+			Vector2i tempSize = (pos2 - pos1);
+			file.write(chr tempSize, sizeof(selectSize));
 			for (int i = pos1.x; i < pos2.x; i++)
 				for (int j = pos1.y; j < pos2.y; j++)
 					file.write(chr m_grid[i][j], sizeof(m_grid[i][j]));
@@ -1089,60 +1091,60 @@ bool Grid::deser(string filename, bool example)
 {
 	if (filename.empty())
 		return false;
-	Vector2i tempSize;
+	Vector2i newSize;
 	ifstream file(filename, ios::binary);
 	if (!file.is_open())
 		return false;
-	Tile** tempPtr;
+	Tile** newPtr;
 	bool resize = false;
 	if (example)
 	{
-		file.read(chr tempSize, sizeof(tempSize));
-		resize = selectSize.x != tempSize.x || selectSize.y != tempSize.y;
+		file.read(chr newSize, sizeof(newSize));
+		resize = selectSize.x != newSize.x || selectSize.y != newSize.y;
 		if (resize)
 		{
-			tempPtr = new Tile * [tempSize.x];
-			for (int i = 0; i < tempSize.x; i++)
-				tempPtr[i] = new Tile[tempSize.y];
+			newPtr = new Tile * [newSize.x];
+			for (int i = 0; i < newSize.x; i++)
+				newPtr[i] = new Tile[newSize.y];
 		}
 		else
-			tempPtr = selectBuf;
-		for (int i = 0; i < tempSize.x; i++)
-			for (int j = 0; j < tempSize.y; j++)
-				file.read(chr tempPtr[i][j], sizeof(tempPtr[i][j]));
+			newPtr = selectBuf;
+		for (int i = 0; i < newSize.x; i++)
+			for (int j = 0; j < newSize.y; j++)
+				file.read(chr newPtr[i][j], sizeof(newPtr[i][j]));
 		if (resize)
 		{
-			swap(tempPtr, selectBuf);
-			for (int i = 0; i < selectSize.x; i++)
-				delete[] tempPtr[i];
-			delete[] tempPtr;
+			swap(newSize, selectSize);
+			swap(newPtr, selectBuf);
+			for (int i = 0; i < newSize.x; i++)
+				delete[] newPtr[i];
+			delete[] newPtr;
 		}
 		selectOffset = Vector2i(0, 0);
-		selectSize = tempSize;
 	}
 	else
 	{
-		file.read(chr tempSize, sizeof(tempSize));
-		resize = size.x != tempSize.x || size.y != tempSize.y;
+		file.read(chr newSize, sizeof(newSize));
+		resize = size.x != newSize.x || size.y != newSize.y;
 		if (resize)
 		{
-			tempPtr = new Tile * [tempSize.x];
-			for (int i = 0; i < tempSize.x; i++)
-				tempPtr[i] = new Tile[tempSize.y];
+			newPtr = new Tile * [newSize.x];
+			for (int i = 0; i < newSize.x; i++)
+				newPtr[i] = new Tile[newSize.y];
 		}
 		else
-			tempPtr = m_grid;
-		for (int i = 0; i < tempSize.x; i++)
-			for (int j = 0; j < tempSize.y; j++)
-				file.read(chr tempPtr[i][j], sizeof(tempPtr[i][j]));
+			newPtr = m_grid;
+		for (int i = 0; i < newSize.x; i++)
+			for (int j = 0; j < newSize.y; j++)
+				file.read(chr newPtr[i][j], sizeof(newPtr[i][j]));
 		if (resize)
 		{
-			swap(tempPtr, m_grid);
-			for (int i = 0; i < size.x; i++)
-				delete[] tempPtr[i];
-			delete[] tempPtr;
+			swap(size, newSize);
+			swap(newPtr, m_grid);
+			for (int i = 0; i < newSize.x; i++)
+				delete[] newPtr[i];
+			delete[] newPtr;
 		}
-		size = tempSize;
 	}
 	file.close();
 	return true;
@@ -1230,8 +1232,41 @@ void Grid::newFile()
 {
 	askForSave();
 	currentFile.clear();
-	createMessage("Enter width");
 
+	int newWidth = 0, newHeight = 0;
+
+	while (newWidth <= 0)
+	{
+		createMessage("Enter width");
+		if (!inputStr())
+			return;
+		newWidth = atoi(tempStr.c_str());
+	}
+	while (newHeight <= 0)
+	{
+		createMessage("Enter height");
+		if (!inputStr())
+			return;
+		newHeight = atoi(tempStr.c_str());
+	}
+	if (newWidth != size.x || newHeight != size.y)
+	{
+		Vector2i newSize(newWidth, newHeight);
+		Tile** newPtr = new Tile * [newSize.x];
+		for (int i = 0; i < newWidth; i++)
+			newPtr[i] = new Tile[newSize.y];
+		swap(size, newSize);
+		swap(newPtr, m_grid);
+		for (int i = 0; i < newSize.x; i++)
+			delete[] newPtr[i];
+		delete[] newPtr;
+	}
+	else
+	{
+		for (int i = 0; i < size.x; i++)
+			for (int j = 0; j < size.y; j++)
+				m_grid[i][j] = Tile();
+	}
 	unsaved = false;
 }
 
