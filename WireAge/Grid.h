@@ -39,7 +39,7 @@ class Grid
 	clock_t tickTimeMicros;
 	int screen = 0;
 	float tickrate = 0;
-	string currentFile = "", tempStr = "";
+	string currentFile = "", inputString = "";
 	volatile bool inputActive = false, paused = false, unsaved = false, ticksHappen = true, bufferOverlay = false;
 	volatile float ppu = 20, targetPpu = ppu;
 	float interfaceScale;
@@ -77,7 +77,7 @@ class Grid
 	bool And(vector<bool>& vals);
 	bool Xor (vector<bool> & vals);
 	bool Xnor(vector<bool>& vals);
-	bool ser(string filename, bool example = false);
+	bool ser(string filename);
 	bool deser(string filename, bool example = false);
 	bool inputStr();
 	bool saveFile();

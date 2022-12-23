@@ -9,4 +9,6 @@ Clock
 RS NOR Flip-Flop
 Register
 Shift Register
-8-bit Adder
+Adder
+Carry-Cancel Adder
+Program Counter

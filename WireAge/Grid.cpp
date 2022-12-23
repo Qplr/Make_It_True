@@ -256,7 +256,6 @@ inline bool Grid::isBasicElement(Vector2i pos)
 	return at(pos).id == TRANSISTOR || at(pos).id == DIODE;
 }
 
-
 inline bool Grid::isSource(Vector2i pos)
 {
 	return at(pos).id == SWITCH;
@@ -543,7 +542,7 @@ void Grid::print()
 
 		if (inputActive)
 		{
-			input.setString(tempStr + '|');
+			input.setString(inputString + '|');
 			input.setOrigin(Vector2f(input.getLocalBounds().width, input.getLocalBounds().height) / 2.f);
 			window.draw(input);
 		}
@@ -1051,27 +1050,22 @@ void Grid::close()
 	window.close();
 }
 
-bool Grid::ser(string filename, bool example)
+bool Grid::ser(string filename)
 {
 	if (filename.empty())
 		return false;
 	ofstream file;
-	if (example)
+	if (selectedPos == 2)
 	{
-		if (selectedPos == 2)
-		{
-			file.open(filename, ios::binary);
-			if (!file.is_open())
-				return false;
-			Vector2i tempSize = (pos2 - pos1);
-			file.write(chr tempSize, sizeof(selectSize));
-			for (int i = pos1.x; i < pos2.x; i++)
-				for (int j = pos1.y; j < pos2.y; j++)
-					file.write(chr m_grid[i][j], sizeof(m_grid[i][j]));
-			file.close();
-		}
-		else
+		file.open(filename, ios::binary);
+		if (!file.is_open())
 			return false;
+		Vector2i tempSize = (pos2 - pos1);
+		file.write(chr tempSize, sizeof(selectSize));
+		for (int i = pos1.x; i < pos2.x; i++)
+			for (int j = pos1.y; j < pos2.y; j++)
+				file.write(chr m_grid[i][j], sizeof(m_grid[i][j]));
+		file.close();
 	}
 	else
 	{
@@ -1154,7 +1148,7 @@ bool Grid::inputStr()
 {
 	Event ev;
 	inputActive = true;
-	tempStr.clear();
+	inputString.clear();
 	while(true)
 	{
 		if (window.pollEvent(ev))
@@ -1170,27 +1164,27 @@ bool Grid::inputStr()
 				}
 				if (ev.key.code == Keyboard::Space)
 				{
-					tempStr += ' ';
+					inputString += ' ';
 				}
 				else if (ev.key.code == Keyboard::BackSpace)
 				{
-					if(tempStr.size() > 0)
-						tempStr.pop_back();
+					if(inputString.size() > 0)
+						inputString.pop_back();
 				}
 				else if (ev.key.code == Keyboard::Enter)
 				{
 					inputActive = false;
-					return !tempStr.empty();
+					return !inputString.empty();
 				}
 				else
 				{
 					if(ev.key.code >= Keyboard::A && ev.key.code <= Keyboard::Z)
 						if(Keyboard::isKeyPressed(Keyboard::LShift) || Keyboard::isKeyPressed(Keyboard::RShift))
-							tempStr += char(ev.key.code - Keyboard::A + 'A');
+							inputString += char(ev.key.code - Keyboard::A + 'A');
 						else
-							tempStr += char(ev.key.code + 'a');
+							inputString += char(ev.key.code + 'a');
 					else if(ev.key.code >= Keyboard::Num0 && ev.key.code <= Keyboard::Num9)
-						tempStr += char(ev.key.code - Keyboard::Num0 + '0');
+						inputString += char(ev.key.code - Keyboard::Num0 + '0');
 				}
 			}
 		}
@@ -1199,26 +1193,33 @@ bool Grid::inputStr()
 
 bool Grid::saveFile()
 {
+	bool saveAsSketch = selectedPos == 2;
 	if (ticksHappen)
 	{
-		createMessage("Turn off all circuits before saving.");
+		createMessage("Turn off all circuits before saving");
 		waitForInput();
 		return false;
 	}
 	while (true)
 	{
-		if (currentFile.empty())
+		if (currentFile.empty() || saveAsSketch)
 		{
-			createMessage("Enter file name to save to.");
+			createMessage(saveAsSketch ? "Enter sketch name" : "Enter file name to save to");
 			if (!inputStr())
 				return false;
-			currentFile = tempStr + ".wrs";
+			if(!saveAsSketch)
+				currentFile = inputString;
 		}
-		if (!ser(currentFile))
+		if (!ser(saveAsSketch ? EXAMPLESFOLDER + inputString:currentFile))
 		{
 			createMessage("Unable to save file.");
 			waitForInput();
 			currentFile.clear();
+		}
+		else if(saveAsSketch)
+		{
+			selectedPos = 0;
+			return true;
 		}
 		else
 		{
@@ -1240,20 +1241,20 @@ void Grid::newFile()
 		createMessage("Enter width");
 		if (!inputStr())
 			return;
-		newWidth = atoi(tempStr.c_str());
+		newWidth = atoi(inputString.c_str());
 	}
 	while (newHeight <= 0)
 	{
 		createMessage("Enter height");
 		if (!inputStr())
 			return;
-		newHeight = atoi(tempStr.c_str());
+		newHeight = atoi(inputString.c_str());
 	}
 	if (newWidth != size.x || newHeight != size.y)
 	{
 		Vector2i newSize(newWidth, newHeight);
 		Tile** newPtr = new Tile * [newSize.x];
-		for (int i = 0; i < newWidth; i++)
+		for (int i = 0; i < newSize.x; i++)
 			newPtr[i] = new Tile[newSize.y];
 		swap(size, newSize);
 		swap(newPtr, m_grid);
@@ -1279,7 +1280,7 @@ bool Grid::openFile()
 		createMessage("Enter file name to open.");
 		if (!inputStr())
 			return false;
-		currentFile = tempStr + ".wrs";
+		currentFile = inputString;
 		if (!deser(currentFile))
 		{
 			createMessage("File not found.");
