@@ -978,7 +978,7 @@ void Grid::undo()
 	{
 		for (int j = 0; j < size.y; j++)
 		{
-			swap(ar[i][j], m_grid[i][j]);
+			swap(ar[i][j], m_grid[i + pos.x][j + pos.y]);
 			/*Tile temp = ar[i][j];
 			ar[i][j] = m_grid[i + pos.x][j + pos.y];
 			m_grid[i + pos.x][j + pos.y] = temp;*/
@@ -997,7 +997,7 @@ void Grid::redo()
 	{
 		for (int j = 0; j < size.y; j++)
 		{
-			swap(ar[i][j], m_grid[i][j]);
+			swap(ar[i][j], m_grid[i + pos.x][j + pos.y]);
 			/*Tile temp = ar[i][j];
 			ar[i][j] = m_grid[i + pos.x][j + pos.y];
 			m_grid[i + pos.x][j + pos.y] = temp;*/
