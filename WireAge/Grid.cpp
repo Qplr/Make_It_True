@@ -116,6 +116,7 @@ void Grid::updateWires(pair<Vector2i, int> param)
 	updatedWires.clear();
 	upd.push_back(param);
 
+	//while (!Keyboard::isKeyPressed(Keyboard::Space));
 	//clock_t last = clock();
 
 	while (!upd.empty())
@@ -128,14 +129,14 @@ void Grid::updateWires(pair<Vector2i, int> param)
 		/*pos1 = pos;
 		pos2 = pos + Vector2i(1, 1);
 		selectedPos = 2;
-		while (clock() < last + 10) {}
+		while (clock() < last + 500 && !Keyboard::isKeyPressed(Keyboard::LControl)) {}
 		last = clock();
 		selectedPos = 0;*/
 
 		if (at(pos).id == CROSS)
 		{
 			tempPos = neighbour(pos, dir);
-			if (isConduction(pos, tempPos) && !isUpdated(tempPos))
+			if (isConduction(pos, tempPos) && !isUpdated(tempPos) && !wasUpdated(tempPos, dir))
 				upd.push_back(make_pair(tempPos, dir));
 			isActive = isActive || (isSource(tempPos) || isGate(tempPos)) && at(tempPos).state;
 			tempPos = neighbour(pos, dir + 2);
@@ -158,12 +159,12 @@ void Grid::updateWires(pair<Vector2i, int> param)
 							temp |= at(tempPos).state;
 					}
 					at(pos).state = temp;
-					for (int i = 1; i < 4; i++)
+					for (int i = 0; i < 4; i++)
 					{
 						tempPos = neighbour(pos, dir + 2 + i);
 						if (isInBounds(tempPos))
 						{
-							if (isConduction(pos, tempPos) && !isWireInQ(tempPos) && !wasUpdated(tempPos, dir + 2 + i))
+							if (isConduction(pos, tempPos) && !wasUpdated(tempPos, dir + 2 + i))
 								addWireToUpdateQ(tempPos, dir + 2 + i);
 						}
 					}
@@ -225,7 +226,7 @@ void Grid::updateWires(pair<Vector2i, int> param)
 				tempPos = neighbour(pos, i);
 				if (isInBounds(tempPos))
 				{
-					if (isConduction(pos, tempPos) && !isUpdated(tempPos))
+					if (isConduction(pos, tempPos) && !isUpdated(tempPos) /*&& !(at(neighbour(pos, dir + 2)).id == CROSS && i == (dir + 2) % 4)*/)
 						upd.push_back(make_pair(tempPos, i));
 					else
 						isActive = isActive || (isSource(tempPos) || isGate(tempPos)) && isConduction(tempPos, pos) && at(tempPos).state;
@@ -752,7 +753,7 @@ void Grid::tick()
 				switch (at(pos).id)
 				{
 				case SWITCH:
-					state = !at(pos).state;
+					state = !prevState;
 					break;
 				case OR:
 					state = Or(inputs);
@@ -838,7 +839,7 @@ void Grid::rightCLick(Vector2i pos)
 		}
 		break;
 	case SWITCH:
-		sourceUpdateQ.emplace_back(pos);
+		sourceUpdateQ.push_back(pos);
 		break;
 	}
 }
