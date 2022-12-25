@@ -56,8 +56,8 @@ int WinMain()
 				switch (ev.key.code)
 				{
 				case Mouse::Left:
-					if(vectorLength(Mouse::getPosition(window) - startPos) < 10)
-						grid.leftClick(Mouse::getPosition(window), Keyboard::isKeyPressed(Keyboard::LControl));
+					if (vectorLength(Mouse::getPosition(window) - startPos) < 1)
+						grid.leftClick(Mouse::getPosition(window), !LMB_Held);
 					LMB_Held = false;
 					break;
 				}

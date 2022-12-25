@@ -12,3 +12,5 @@ Shift Register
 Adder
 Carry-Cancel Adder
 Program Counter
+4 Bit Decoder
+Consistent 2 Tick Clock

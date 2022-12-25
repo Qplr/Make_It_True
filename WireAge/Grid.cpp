@@ -2,12 +2,14 @@
 #define chr (char *)&
 inline bool Grid::isConduction(Vector2i from, Vector2i to)
 {
-	return isSource(from) && (isWire(to) || isInput(to))
+	return
+		!(isVoid(from) || (isSource(from) || isGate(from)) && isBasicElement(to))
+		&&
+		(
+		(isWire(to) || isBasicElement(to))
 		||
-		(isWire(from) || isInput(from) || isBasicElement(from)) && (isWire(to) || isInput(to) || isBasicElement(to))
-		||
-		(isGate(from)) && isWire(to)
-		;
+		(isSource(from) || isInput(from) || isWire(from)) && (isInput(to))
+		);
 }
 
 inline bool Grid::isSelected(Vector2i pos)
@@ -106,18 +108,30 @@ void Grid::updateWires(pair<Vector2i, int> param)
 {
 	if(!isInBounds(param.first))
 		return;
-	if (!isConduction(neighbour(param.first, (param.second + 2) % 4), param.first))
+	if (!isConduction(neighbour(param.first, param.second + 2), param.first))
 		return;
 	bool isActive = false, temp;
 	int dir;
 	Vector2i pos, tempPos;
 	updatedWires.clear();
 	upd.push_back(param);
-	do
+
+	//clock_t last = clock();
+
+	while (!upd.empty())
 	{
-		pos = upd.front().first;
-		dir = upd.front().second % 4;
-		upd.pop_front();
+		
+		pos = upd.back().first;
+		dir = upd.back().second % 4;
+		upd.pop_back();
+
+		/*pos1 = pos;
+		pos2 = pos + Vector2i(1, 1);
+		selectedPos = 2;
+		while (clock() < last + 10) {}
+		last = clock();
+		selectedPos = 0;*/
+
 		if (at(pos).id == CROSS)
 		{
 			tempPos = neighbour(pos, dir);
@@ -134,7 +148,7 @@ void Grid::updateWires(pair<Vector2i, int> param)
 			{
 				if (!isSourceInQ(pos))
 				{
-					sourcesToUpdate.push_back(pos);
+					//updatedBasicElems.push_back(make_pair(pos, dir));
 					updatedWires.push_back(pos);
 					temp = false;
 					for (int i = 1; i < 4; i++)
@@ -149,35 +163,33 @@ void Grid::updateWires(pair<Vector2i, int> param)
 						tempPos = neighbour(pos, dir + 2 + i);
 						if (isInBounds(tempPos))
 						{
-							if (isBasicElement(tempPos) || isWire(tempPos) && !isWireInQ(tempPos))
-								wiresToUpdate.push_back(make_pair(tempPos, dir + 2 + i));
+							if (isConduction(pos, tempPos) && !isWireInQ(tempPos) && !wasUpdated(tempPos, dir + 2 + i))
+								addWireToUpdateQ(tempPos, dir + 2 + i);
 						}
 					}
 				}
 			}
-			else
+			else if(at(pos).state)
 			{
 				for (int i = 1; i < 4; i++)
 				{
 					tempPos = neighbour(pos, dir + 2 + i);
 					if (isInBounds(tempPos))
 					{
-						if (isBasicElement(tempPos) || isWire(tempPos) && !isUpdated(tempPos))
-							if(at(pos).state)
-								upd.push_back(make_pair(tempPos, dir + 2 + i));
+						if ((isBasicElement(tempPos) || isWire(tempPos)) && !isUpdated(tempPos))
+							upd.push_back(make_pair(tempPos, dir + 2 + i));
 					}
 				}
 			}
-
 		}
 		else if (at(pos).id == DIODE)
 		{
 			tempPos = neighbour(pos, dir + 2);
 			if (isInput(tempPos))
 			{
-				if (!isSourceInQ(pos))
+				//if (!isSourceInQ(pos))
 				{
-					sourcesToUpdate.push_back(pos);
+					//updatedBasicElems.push_back(make_pair(pos, dir));
 					updatedWires.push_back(pos);
 					temp = false;
 					for (int i = 1; i < 4; i++)
@@ -186,14 +198,15 @@ void Grid::updateWires(pair<Vector2i, int> param)
 						if (isInput(tempPos))
 							temp |= at(tempPos).state;
 					}
+					//message.setString(message.getString() + (temp ? "1" : "0"));
 					at(pos).state = temp;
 					for (int i = 1; i < 4; i++)
 					{
 						tempPos = neighbour(pos, dir + 2 + i);
 						if (isInBounds(tempPos))
 						{
-							if (isBasicElement(tempPos) || isWire(tempPos) && !isWireInQ(tempPos))
-								wiresToUpdate.push_back(make_pair(tempPos, dir + 2 + i));
+							if ((isBasicElement(tempPos) || isWire(tempPos)) && !wasUpdated(tempPos, dir + 2 + i))
+								addWireToUpdateQ(tempPos, dir + 2 + i);
 						}
 					}
 				}
@@ -219,7 +232,7 @@ void Grid::updateWires(pair<Vector2i, int> param)
 				}
 			}
 		}
-	} while (!upd.empty());
+	}
 	for (int i = 0; i < updatedWires.size(); i++)
 	{
 		if (isInput(updatedWires[i]))
@@ -230,8 +243,8 @@ void Grid::updateWires(pair<Vector2i, int> param)
 				{
 					tempPos = neighbour(updatedWires[i], j);
 					if(isInBounds(tempPos))
-						if ((isSource(tempPos) || isGate(tempPos)) && !isSourceInQ(tempPos))
-							sourcesToUpdate.push_back(tempPos);
+						if (isGate(tempPos) && !isSourceInQ(tempPos))
+							sourceUpdateQ.push_back(tempPos);
 				}
 			}
 		}
@@ -281,16 +294,30 @@ bool Grid::isUpdated(Vector2i pos)
 
 bool Grid::isWireInQ(Vector2i pos)
 {
-	for (int i = 0; i < wiresToUpdate.size(); i++)
-		if (Vector2i(pos.x, pos.y) == wiresToUpdate.at(i).first)
+	for (int i = 0; i < wireUpdateQ.size(); i++)
+		if (Vector2i(pos.x, pos.y) == wireUpdateQ.at(i).first)
 			return true;
 	return false;
 }
 
+bool Grid::wasUpdated(Vector2i pos, int dir)
+{
+	for (int i = 0; i < tickUpdatePoints.size(); i++)
+		if (tickUpdatePoints[i] == make_pair(pos, dir))
+			return true;
+	return false;
+}
+
+void Grid::addWireToUpdateQ(Vector2i pos, int dir)
+{
+	wireUpdateQ.push_back(make_pair(pos, dir));
+	tickUpdatePoints.push_back(make_pair(pos, dir));
+}
+
 bool Grid::isSourceInQ(Vector2i pos)
 {
-	for (int i = 0; i < sourcesToUpdate.size(); i++)
-		if (Vector2i(pos.x, pos.y) == sourcesToUpdate.at(i))
+	for (int i = 0; i < sourceUpdateQ.size(); i++)
+		if (Vector2i(pos.x, pos.y) == sourceUpdateQ.at(i))
 			return true;
 	return false;
 }
@@ -303,6 +330,11 @@ inline bool Grid::isInput(Vector2i pos)
 inline Tile & Grid::at(Vector2i pos)
 {
 	return m_grid[pos.x][pos.y];
+}
+
+inline bool Grid::isVoid(Vector2i pos)
+{
+	return at(pos).id == VOID;
 }
 
 inline Tile& Grid::atInBuf(Vector2i pos)
@@ -368,7 +400,6 @@ bool Grid::Xnor(vector<bool>& vals)
 	return true;
 }
 
-
 void Grid::adjustCamPos()
 {
 	camPos.x = min(camPos.x, size.x - window.getSize().x / 2 / float(ppu));
@@ -377,11 +408,10 @@ void Grid::adjustCamPos()
 	camPos.y = max(camPos.y, -float(window.getSize().y / 2) / float(ppu));
 }
 
-Grid::Grid(RenderWindow& window, int tps):window(window)
+Grid::Grid(RenderWindow& w, int tps):window(w), interfaceScale(w.getSize().x / 960.0)
 {
 	tickTimeMicros = 1000000 / tps;
 	window.setVerticalSyncEnabled(true);
-	interfaceScale = window.getSize().x / 960.0;
 	size = Vector2i(2000, 2000);
 	m_grid = new Tile * [size.x];
 	for (int i = 0; i < size.x; i++)
@@ -488,16 +518,30 @@ void Grid::print()
 {
 	Vector2i mousePosUnits;
 	Sprite s;
-	Vector2i temp;
-	Vector2f camPosLocal, unitsPerScreen;
+	Vector2i temp, unitsPerScreen;
+	Vector2f camPosLocal;
 	float ppuLocal;
 	bool activeTile;
+
+	clock_t last = clock();
+
 	while (window.isOpen())
 	{
-		mousePosUnits = ptc(Mouse::getPosition(window));
-		camPosLocal = camPos;
+		if (ppu != targetPpu)
+		{
+			Vector2f mousePosUnitsFloat = Vector2f(Mouse::getPosition(window)) / float(ppu);
+			ppuStep = int(abs(ppu - targetPpu) / 20 + 1);
+			if (abs(ppu - targetPpu) < ppuStep)
+				ppuStep /= abs(ppuStep);
+			ppu += ppuStep * (ppu < targetPpu ? 1 : -1);
+			camPos += mousePosUnitsFloat - Vector2f(Mouse::getPosition(window)) / float(ppu);
+			adjustCamPos();
+		}
+
 		ppuLocal = ppu;
-		unitsPerScreen = Vector2f(window.getSize()) / ppuLocal + Vector2f(1, 1);
+		camPosLocal = camPos;
+		mousePosUnits = ptc(Mouse::getPosition(window));
+		unitsPerScreen = Vector2i(window.getSize()) / int(ppuLocal) + Vector2i(2, 2);
 		s.setScale(float(ppuLocal - settings[RENDERGRID]) / TileTextureSize, float(ppuLocal - settings[RENDERGRID]) / TileTextureSize);
 		window.clear(Color(48, 48, 48));
 		for (int i = 0; i < unitsPerScreen.x; i++)
@@ -506,8 +550,7 @@ void Grid::print()
 				temp.x = i + camPosLocal.x;
 				temp.y = j + camPosLocal.y;
 				if (isInBounds(temp))
-				{
-					
+				{	
 					if (bufferOverlay && temp.x - mousePosUnits.x - selectOffset.x < selectSize.x && temp.x - mousePosUnits.x - selectOffset.x >= 0 && temp.y - mousePosUnits.y - selectOffset.y < selectSize.y && temp.y - mousePosUnits.y - selectOffset.y >= 0)
 					{
 						s.setTexture(textures[atInBuf(temp - mousePosUnits - selectOffset).id]);
@@ -678,7 +721,7 @@ void Grid::tick()
 {
 	Vector2i pos, tempPos;
 	vector<bool> inputs;
-	int state, tickTimes = 0, ticks = 0;
+	int state = 0, prevState, tickTimes = 0, ticks = 0;
 	Clock tickrateUpdateClock;
 	while (window.isOpen())
 	{
@@ -692,7 +735,7 @@ void Grid::tick()
 				ticks = 0;
 			}
 			tpsClock.restart();
-			if (sourcesToUpdate.size() > 0)
+			if (sourceUpdateQ.size() > 0)
 			{
 				ticksHappen = true;
 				unsaved = true;
@@ -701,14 +744,15 @@ void Grid::tick()
 			{
 				ticksHappen = false;
 			}
-			for (int i = 0; i < sourcesToUpdate.size(); i++)
+			for (int i = 0; i < sourceUpdateQ.size(); i++)
 			{
-				pos = sourcesToUpdate[i];
+				pos = sourceUpdateQ[i];
 				getInputs(inputs, pos);
+				prevState = at(pos).state;
 				switch (at(pos).id)
 				{
 				case SWITCH:
-					state = at(pos).state;
+					state = !at(pos).state;
 					break;
 				case OR:
 					state = Or(inputs);
@@ -731,21 +775,25 @@ void Grid::tick()
 				default:
 					continue;
 				}
-				m_grid[pos.x][pos.y].state = state;
-				for (int i = 0; i < 4; i++)
+				if (state != prevState)
 				{
-					tempPos = neighbour(pos, i);
-					if (isInBounds(tempPos))
-						if (!isWireInQ(tempPos) && isConduction(pos, tempPos))
-							wiresToUpdate.push_back(make_pair(tempPos, i));
+					m_grid[pos.x][pos.y].state = state;
+					for (int i = 0; i < 4; i++)
+					{
+						tempPos = neighbour(pos, i);
+						if (isInBounds(tempPos))
+							if (isConduction(pos, tempPos))
+								addWireToUpdateQ(tempPos, i);
+					}
 				}
 			}
-			sourcesToUpdate.clear();
-			while (!wiresToUpdate.empty())
+			sourceUpdateQ.clear();
+			while (!wireUpdateQ.empty())
 			{
-				updateWires(wiresToUpdate.front());
-				wiresToUpdate.pop_front();
+				updateWires(wireUpdateQ.front());
+				wireUpdateQ.pop_front();
 			}
+			tickUpdatePoints.clear();
 		}
 	}
 }
@@ -778,29 +826,20 @@ void Grid::rightCLick(Vector2i pos)
 		unsaved = true;
 		at(pos) = Tile(selectedBlock, false);
 
-		if (isSource(pos))
-			sourcesToUpdate.push_back(pos);
+		if (isGate(pos))
+			sourceUpdateQ.push_back(pos);
 
 		for (int i = 0; i < 4; i++)
 		{
 			tempPos = neighbour(pos, i);
 			if (isInBounds(tempPos))
-				if (isSource(tempPos) || isGate(tempPos))
-					sourcesToUpdate.push_back(tempPos);
-				else if (isWire(tempPos) || isInput(tempPos))
-					wiresToUpdate.push_back(make_pair(tempPos, i));
+				if (isConduction(pos, tempPos))
+					addWireToUpdateQ(tempPos, i);
 		}
 		break;
-		case SWITCH:
-			at(pos).state = 1 - at(pos).state;
-			sourcesToUpdate.push_back(pos);
-			/*for (int i = 0; i < 4; i++)
-			{
-				tempPos = neighbour(pos, i);
-				if (isConduction(pos, tempPos))
-					wiresToUpdate.push_back(make_pair(tempPos, i));
-			}*/
-			break;
+	case SWITCH:
+		sourceUpdateQ.emplace_back(pos);
+		break;
 	}
 }
 
@@ -820,17 +859,17 @@ void Grid::leftClick(Vector2i pos, bool alternative)
 	if (at(pos).id != VOID)
 	{
 		unsaved = true;
-		at(pos).state = false;
-		at(pos).id = VOID;
 		for (int i = 0; i < 4; i++)
 		{
 			tempPos = neighbour(pos, i);
 			if (isInBounds(tempPos))
 				if (isSource(tempPos) || isGate(tempPos))
-					sourcesToUpdate.push_back(tempPos);
+					sourceUpdateQ.push_back(tempPos);
 				else if (isWire(tempPos) || isInput(tempPos))
-					wiresToUpdate.push_back(make_pair(tempPos, i));
+					addWireToUpdateQ(tempPos, i);
 		}
+		at(pos).state = false;
+		at(pos).id = VOID;
 	}
 }
 
@@ -975,15 +1014,8 @@ void Grid::undo()
 	auto pos = copies.at(copyIndex).second.first, size = copies.at(copyIndex).second.second;
 	Tile ** ar = copies.at(copyIndex).first;
 	for (int i = 0; i < size.x; i++)
-	{
 		for (int j = 0; j < size.y; j++)
-		{
-			swap(ar[i][j], m_grid[i + pos.x][j + pos.y]);
-			/*Tile temp = ar[i][j];
-			ar[i][j] = m_grid[i + pos.x][j + pos.y];
-			m_grid[i + pos.x][j + pos.y] = temp;*/
-		}
-	}
+			std::swap(ar[i][j], m_grid[i + pos.x][j + pos.y]);
 	unsaved = true;
 }
 
@@ -994,15 +1026,8 @@ void Grid::redo()
 	auto pos = copies.at(copyIndex).second.first, size = copies.at(copyIndex).second.second;
 	Tile** ar = copies.at(copyIndex).first;
 	for (int i = 0; i < size.x; i++)
-	{
 		for (int j = 0; j < size.y; j++)
-		{
-			swap(ar[i][j], m_grid[i + pos.x][j + pos.y]);
-			/*Tile temp = ar[i][j];
-			ar[i][j] = m_grid[i + pos.x][j + pos.y];
-			m_grid[i + pos.x][j + pos.y] = temp;*/
-		}
-	}
+			std::swap(ar[i][j], m_grid[i + pos.x][j + pos.y]);
 	copyIndex++;
 	unsaved = true;
 }
@@ -1108,8 +1133,8 @@ bool Grid::deser(string filename, bool example)
 				file.read(chr newPtr[i][j], sizeof(newPtr[i][j]));
 		if (resize)
 		{
-			swap(newSize, selectSize);
-			swap(newPtr, selectBuf);
+			std::swap(newSize, selectSize);
+			std::swap(newPtr, selectBuf);
 			for (int i = 0; i < newSize.x; i++)
 				delete[] newPtr[i];
 			delete[] newPtr;
@@ -1133,8 +1158,8 @@ bool Grid::deser(string filename, bool example)
 				file.read(chr newPtr[i][j], sizeof(newPtr[i][j]));
 		if (resize)
 		{
-			swap(size, newSize);
-			swap(newPtr, m_grid);
+			std::swap(size, newSize);
+			std::swap(newPtr, m_grid);
 			for (int i = 0; i < newSize.x; i++)
 				delete[] newPtr[i];
 			delete[] newPtr;
@@ -1256,8 +1281,8 @@ void Grid::newFile()
 		Tile** newPtr = new Tile * [newSize.x];
 		for (int i = 0; i < newSize.x; i++)
 			newPtr[i] = new Tile[newSize.y];
-		swap(size, newSize);
-		swap(newPtr, m_grid);
+		std::swap(size, newSize);
+		std::swap(newPtr, m_grid);
 		for (int i = 0; i < newSize.x; i++)
 			delete[] newPtr[i];
 		delete[] newPtr;

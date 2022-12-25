@@ -28,7 +28,7 @@ class Grid
 	{
 		TIMELAPSE, RENDERGRID, TOTAL_SETTINGS
 	};
-	volatile int settings[TOTAL_SETTINGS] = {0, 0};
+	volatile int settings[TOTAL_SETTINGS] = {0, 1};
 	Tile** m_grid, **selectBuf = nullptr;
 	RenderWindow& window;
 	Font font;
@@ -41,7 +41,7 @@ class Grid
 	float tickrate = 0;
 	string currentFile = "", inputString = "";
 	volatile bool inputActive = false, paused = false, unsaved = false, ticksHappen = true, bufferOverlay = false;
-	volatile float ppu = 20, targetPpu = ppu;
+	float ppu = 20, targetPpu = ppu, ppuStep;
 	float interfaceScale;
 	const int minGridSize = 10, minPpu = 3, maxCopies = 1000, tickrateUpdatesPerSec = 5;
 	Texture textures[TOTAL_BLOCKS];
@@ -49,8 +49,8 @@ class Grid
 	int selectedBlock = WIRE;
 	int selectedPos = 0, copyIndex = 0;
 	vector<pair<vector<Text>, int>> options;
-	vector<Vector2i> updatedWires, sourcesToUpdate;
-	deque<pair<Vector2i, int>> wiresToUpdate;
+	vector<Vector2i> updatedWires, sourceUpdateQ;
+	deque<pair<Vector2i, int>> wireUpdateQ, tickUpdatePoints;
 	deque<pair<Vector2i, int>> upd;
 	deque<pair<Tile**, pair<Vector2i, Vector2i>>> copies;
 	inline bool isSelected(Vector2i pos);
@@ -63,11 +63,14 @@ class Grid
 	inline bool isSource(Vector2i pos);
 	inline bool isGate(Vector2i pos);
 	inline bool isInput(Vector2i pos);
+	inline bool isVoid(Vector2i pos);
 	inline Tile & at(Vector2i pos);
 	inline Tile & atInBuf(Vector2i pos);
 	inline bool isInBounds(Vector2i pos);
 	bool isUpdated(Vector2i pos);
 	bool isWireInQ(Vector2i pos);
+	bool wasUpdated(Vector2i pos, int dir);
+	void addWireToUpdateQ(Vector2i pos, int dir);
 	bool isSourceInQ(Vector2i pos);
 	void getInputs(vector<bool> &inputs, Vector2i pos);
 	Vector2i neighbour(Vector2i pos, int i);
@@ -128,10 +131,6 @@ public:
 	}
 	inline void scale(int delta)
 	{
-		Vector2f mousePosUnitsFloat = Vector2f(Mouse::getPosition(window)) / ppu;
-		ppu = max(ppu + delta * int(sqrt(ppu)), float(minPpu));
-		camPos += mousePosUnitsFloat - Vector2f(Mouse::getPosition(window)) / ppu;
-		adjustCamPos();
+		targetPpu = max(targetPpu + int(delta + delta * sqrt(targetPpu) * int(log10(targetPpu))), float(minPpu));
 	}
 };
-
