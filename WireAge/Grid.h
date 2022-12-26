@@ -113,6 +113,7 @@ public:
 	void tick();
 	void scroll(int delta);
 	void rightCLick(Vector2i pos);
+	void middleClick(Vector2i pos);
 	void leftClick(Vector2i pos, bool alternative);
 	void toggleBufferOverlay() { bufferOverlay = 1 - bufferOverlay; }
 	void togglePause() { paused = !paused; }

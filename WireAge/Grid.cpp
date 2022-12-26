@@ -116,8 +116,8 @@ void Grid::updateWires(pair<Vector2i, int> param)
 	updatedWires.clear();
 	upd.push_back(param);
 
-	//while (!Keyboard::isKeyPressed(Keyboard::Space));
-	//clock_t last = clock();
+	/*while (!Keyboard::isKeyPressed(Keyboard::Space));
+	clock_t last = clock();*/
 
 	while (!upd.empty())
 	{
@@ -129,7 +129,7 @@ void Grid::updateWires(pair<Vector2i, int> param)
 		/*pos1 = pos;
 		pos2 = pos + Vector2i(1, 1);
 		selectedPos = 2;
-		while (clock() < last + 500 && !Keyboard::isKeyPressed(Keyboard::LControl)) {}
+		while (clock() < last + 200 && !Keyboard::isKeyPressed(Keyboard::LControl)) {}
 		last = clock();
 		selectedPos = 0;*/
 
@@ -147,27 +147,31 @@ void Grid::updateWires(pair<Vector2i, int> param)
 			tempPos = neighbour(pos, dir + 2);
 			if (isInput(tempPos))
 			{
-				if (!isSourceInQ(pos))
+				updatedWires.push_back(pos);
+				temp = false;
+				for (int i = 1; i < 4; i++)
 				{
-					//updatedBasicElems.push_back(make_pair(pos, dir));
-					updatedWires.push_back(pos);
-					temp = false;
-					for (int i = 1; i < 4; i++)
+					tempPos = neighbour(pos, dir + 2 + i);
+					if (isInput(tempPos))
+						temp |= at(tempPos).state;
+				}
+				at(pos).state = temp;
+				for (int i = 1; i < 4; i++)
+				{
+					tempPos = neighbour(pos, dir + 2 + i);
+					if (isInBounds(tempPos))
 					{
-						tempPos = neighbour(pos, dir + 2 + i);
-						if (isInput(tempPos))
-							temp |= at(tempPos).state;
+						if (isConduction(pos, tempPos) && !wasUpdated(tempPos, dir + 2 + i))
+							addWireToUpdateQ(tempPos, dir + 2 + i);
 					}
-					at(pos).state = temp;
-					for (int i = 0; i < 4; i++)
-					{
-						tempPos = neighbour(pos, dir + 2 + i);
-						if (isInBounds(tempPos))
-						{
-							if (isConduction(pos, tempPos) && !wasUpdated(tempPos, dir + 2 + i))
-								addWireToUpdateQ(tempPos, dir + 2 + i);
-						}
-					}
+				}
+				updatedWires.push_back(pos);
+				temp = false;
+				for (int i = 1; i < 4; i++)
+				{
+					tempPos = neighbour(pos, dir + 2 + i);
+					if (isInput(tempPos))
+						temp |= at(tempPos).state;
 				}
 			}
 			else if(at(pos).state)
@@ -188,27 +192,22 @@ void Grid::updateWires(pair<Vector2i, int> param)
 			tempPos = neighbour(pos, dir + 2);
 			if (isInput(tempPos))
 			{
-				//if (!isSourceInQ(pos))
+				updatedWires.push_back(pos);
+				temp = false;
+				for (int i = 1; i < 4; i++)
 				{
-					//updatedBasicElems.push_back(make_pair(pos, dir));
-					updatedWires.push_back(pos);
-					temp = false;
-					for (int i = 1; i < 4; i++)
+					tempPos = neighbour(pos, dir + 2 + i);
+					if (isInput(tempPos))
+						temp |= at(tempPos).state;
+				}
+				at(pos).state = temp;
+				for (int i = 1; i < 4; i++)
+				{
+					tempPos = neighbour(pos, dir + 2 + i);
+					if (isInBounds(tempPos))
 					{
-						tempPos = neighbour(pos, dir + 2 + i);
-						if (isInput(tempPos))
-							temp |= at(tempPos).state;
-					}
-					//message.setString(message.getString() + (temp ? "1" : "0"));
-					at(pos).state = temp;
-					for (int i = 1; i < 4; i++)
-					{
-						tempPos = neighbour(pos, dir + 2 + i);
-						if (isInBounds(tempPos))
-						{
-							if ((isBasicElement(tempPos) || isWire(tempPos)) && !wasUpdated(tempPos, dir + 2 + i))
-								addWireToUpdateQ(tempPos, dir + 2 + i);
-						}
+						if ((isBasicElement(tempPos) || isWire(tempPos)) && !wasUpdated(tempPos, dir + 2 + i))
+							addWireToUpdateQ(tempPos, dir + 2 + i);
 					}
 				}
 			}
@@ -226,7 +225,7 @@ void Grid::updateWires(pair<Vector2i, int> param)
 				tempPos = neighbour(pos, i);
 				if (isInBounds(tempPos))
 				{
-					if (isConduction(pos, tempPos) && !isUpdated(tempPos) /*&& !(at(neighbour(pos, dir + 2)).id == CROSS && i == (dir + 2) % 4)*/)
+					if (isConduction(pos, tempPos) && !isUpdated(tempPos))
 						upd.push_back(make_pair(tempPos, i));
 					else
 						isActive = isActive || (isSource(tempPos) || isGate(tempPos)) && isConduction(tempPos, pos) && at(tempPos).state;
@@ -311,6 +310,7 @@ bool Grid::wasUpdated(Vector2i pos, int dir)
 
 void Grid::addWireToUpdateQ(Vector2i pos, int dir)
 {
+	//dir %= 4;
 	wireUpdateQ.push_back(make_pair(pos, dir));
 	tickUpdatePoints.push_back(make_pair(pos, dir));
 }
@@ -844,6 +844,14 @@ void Grid::rightCLick(Vector2i pos)
 	}
 }
 
+void Grid::middleClick(Vector2i pos)
+{
+	pos = ptc(pos);
+	if (at(pos).id == VOID)
+		return;
+	selectedBlock = at(pos).id;
+}
+
 void Grid::leftClick(Vector2i pos, bool alternative)
 {
 	if (isScreenClick(pos))
@@ -864,9 +872,7 @@ void Grid::leftClick(Vector2i pos, bool alternative)
 		{
 			tempPos = neighbour(pos, i);
 			if (isInBounds(tempPos))
-				if (isSource(tempPos) || isGate(tempPos))
-					sourceUpdateQ.push_back(tempPos);
-				else if (isWire(tempPos) || isInput(tempPos))
+				if (isWire(tempPos) || isInput(tempPos))
 					addWireToUpdateQ(tempPos, i);
 		}
 		at(pos).state = false;
@@ -1257,7 +1263,8 @@ bool Grid::saveFile()
 
 void Grid::newFile()
 {
-	askForSave();
+	if (askForSave() < 0)
+		return;
 	currentFile.clear();
 
 	int newWidth = 0, newHeight = 0;
@@ -1299,7 +1306,7 @@ void Grid::newFile()
 
 bool Grid::openFile()
 {
-	if (askForSave() == -1)
+	if (askForSave() < 0)
 		return false;
 	while (true)
 	{
