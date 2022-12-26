@@ -44,6 +44,9 @@ int WinMain()
 						startPos = Mouse::getPosition(window);
 					}
 					break;
+				case Mouse::Middle:
+					grid.middleClick(Mouse::getPosition(window));
+					break;
 				case Mouse::Right:
 					if (Keyboard::isKeyPressed(Keyboard::LControl))
 						grid.select(Mouse::getPosition(window));
