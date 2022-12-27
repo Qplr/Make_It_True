@@ -2,8 +2,8 @@
 #include "Grid.h"
 #include <thread>
 volatile bool paused = false, timelapse = false;
-RenderWindow window(VideoMode::getDesktopMode(), "Grid", Style::Fullscreen);
-Grid grid(window, 10);
+RenderWindow window;
+Grid grid(window, 10, 144);
 void coreW()
 {
 	grid.tick();

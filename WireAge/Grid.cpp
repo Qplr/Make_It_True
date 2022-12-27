@@ -1,4 +1,5 @@
 #include "Grid.h"
+#include <format>
 #define chr (char *)&
 inline bool Grid::isConduction(Vector2i from, Vector2i to)
 {
@@ -358,14 +359,14 @@ Vector2i Grid::neighbour(Vector2i pos, int i)
 	return pos;
 }
 
-Vector2i Grid::ptc(Vector2i pos, float ppuLocal)
+Vector2i Grid::ptc(Vector2i pos)
 {
-	return Vector2i(Vector2f(pos) / ((ppuLocal == 0) ? ppu : ppuLocal) + camPos);
+	return Vector2i(Vector2f(pos) / float(ppu) + camPos);
 }
 
-Vector2i Grid::ctp(Vector2i coords, float ppuLocal)
+Vector2i Grid::ctp(Vector2i coords)
 {
-	return Vector2i(Vector2f(coords) - camPos * ((ppuLocal == 0) ? ppu: ppuLocal));
+	return Vector2i(Vector2f(coords) - camPos * float(ppu));
 }
 
 bool Grid::Or(vector<bool>& vals)
@@ -409,11 +410,15 @@ void Grid::adjustCamPos()
 	camPos.y = max(camPos.y, -float(window.getSize().y / 2) / float(ppu));
 }
 
-Grid::Grid(RenderWindow& w, int tps):window(w), interfaceScale(w.getSize().x / 960.0)
+Grid::Grid(RenderWindow& w, int tps, int fps): window(w)
 {
-	tickTimeMicros = 1000000 / tps;
+	window.create(VideoMode::getFullscreenModes()[0], "Make it true", Style::Fullscreen);
+	interfaceScale = window.getSize().x / 960.0;
+	tickrate = tps;
+	setTps(tps);
+	setFps(fps);
 	window.setVerticalSyncEnabled(true);
-	size = Vector2i(2000, 2000);
+	size = Vector2i(500, 500);
 	m_grid = new Tile * [size.x];
 	for (int i = 0; i < size.x; i++)
 		m_grid[i] = new Tile[size.y];
@@ -521,35 +526,33 @@ void Grid::print()
 	Sprite s;
 	Vector2i temp, unitsPerScreen;
 	Vector2f camPosLocal;
-	float ppuLocal;
+	float ppuLocal, ppuStep;
 	bool activeTile;
-
-	clock_t last = clock();
-
+	
 	while (window.isOpen())
 	{
-		if (ppu != targetPpu)
+		if (abs(ppu - targetPpu) > 0.0001)
 		{
 			Vector2f mousePosUnitsFloat = Vector2f(Mouse::getPosition(window)) / float(ppu);
-			ppuStep = int(abs(ppu - targetPpu) / 20 + 1);
+			ppuStep = roundf(int(abs(ppu - targetPpu)) / 20.f) + 1;
 			if (abs(ppu - targetPpu) < ppuStep)
-				ppuStep /= abs(ppuStep);
+				ppu = targetPpu;
 			ppu += ppuStep * (ppu < targetPpu ? 1 : -1);
 			camPos += mousePosUnitsFloat - Vector2f(Mouse::getPosition(window)) / float(ppu);
 			adjustCamPos();
 		}
-
 		ppuLocal = ppu;
 		camPosLocal = camPos;
 		mousePosUnits = ptc(Mouse::getPosition(window));
 		unitsPerScreen = Vector2i(window.getSize()) / int(ppuLocal) + Vector2i(2, 2);
 		s.setScale(float(ppuLocal - settings[RENDERGRID]) / TileTextureSize, float(ppuLocal - settings[RENDERGRID]) / TileTextureSize);
+		frameClock.restart();
 		window.clear(Color(48, 48, 48));
 		for (int i = 0; i < unitsPerScreen.x; i++)
 			for (int j = 0; j < unitsPerScreen.y; j++)
 			{
-				temp.x = i + camPosLocal.x;
-				temp.y = j + camPosLocal.y;
+				temp.x = i + camPosLocal.x - 0.001;
+				temp.y = j + camPosLocal.y - 0.001;
 				if (isInBounds(temp))
 				{	
 					if (bufferOverlay && temp.x - mousePosUnits.x - selectOffset.x < selectSize.x && temp.x - mousePosUnits.x - selectOffset.x >= 0 && temp.y - mousePosUnits.y - selectOffset.y < selectSize.y && temp.y - mousePosUnits.y - selectOffset.y >= 0)
@@ -600,7 +603,7 @@ void Grid::print()
 		else
 			title.setString(WINDOWTITLE + currentFile);
 		title.setOrigin(Vector2f(title.getLocalBounds().width / 2, 0));
-		tickrateText.setString("TPS: " + to_string(tickrate));
+		tickrateText.setString("TPS: " + format("{:.2f}", tickrate));
 		tickrateText.setOrigin(Vector2f(tickrateText.getLocalBounds().width / 2, 0));
 		if(unsaved)
 			title.setFillColor(Color::Yellow);
@@ -615,6 +618,7 @@ void Grid::print()
 		window.draw(title);
 		window.draw(tickrateText);
 		window.display();
+		sleep(frameTimeMicros - frameClock.getElapsedTime());
 	}
 }
 
@@ -724,18 +728,12 @@ void Grid::tick()
 	vector<bool> inputs;
 	int state = 0, prevState, tickTimes = 0, ticks = 0;
 	Clock tickrateUpdateClock;
+	float newTickrate = tickrate;
 	while (window.isOpen())
 	{
-		if (settings[TIMELAPSE] || !paused && tpsClock.getElapsedTime().asMicroseconds() > tickTimeMicros)
+		tpsClock.restart();
+		if (!paused)
 		{
-			ticks++;
-			if (tickrateUpdateClock.getElapsedTime().asMicroseconds() > 1000000 / tickrateUpdatesPerSec)
-			{
-				tickrateUpdateClock.restart();
-				tickrate = float(ticks) / (1000000 / tickrateUpdatesPerSec) * 1000000;
-				ticks = 0;
-			}
-			tpsClock.restart();
 			if (sourceUpdateQ.size() > 0)
 			{
 				ticksHappen = true;
@@ -795,6 +793,20 @@ void Grid::tick()
 				wireUpdateQ.pop_front();
 			}
 			tickUpdatePoints.clear();
+			ticks++;
+			
+			if (ticks >= 1 / log10(tickrate))
+			{
+				newTickrate = ticks / (tickrateUpdateClock.getElapsedTime().asSeconds());
+				if (isinf(newTickrate))
+					tickrate = 1000000;
+				else
+					tickrate = newTickrate;
+				ticks = 0;
+				tickrateUpdateClock.restart();
+			}
+			if (!settings[TIMELAPSE])
+				sleep(tickTimeMicros - tpsClock.getElapsedTime());
 		}
 	}
 }

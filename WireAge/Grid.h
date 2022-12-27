@@ -35,17 +35,18 @@ class Grid
 	Text input, message, title, tickrateText;
 	Vector2i size = Vector2i(0, 0), selectSize = Vector2i(0, 0), selectOffset, pos1, pos2;
 	Vector2f camPos;
-	Clock tpsClock;
-	clock_t tickTimeMicros;
+	Clock tpsClock, frameClock;
+	Time tickTimeMicros, frameTimeMicros;
 	int screen = 0;
-	float tickrate = 0;
+	float tickrate;
 	string currentFile = "", inputString = "";
 	volatile bool inputActive = false, paused = false, unsaved = false, ticksHappen = true, bufferOverlay = false;
-	float ppu = 20, targetPpu = ppu, ppuStep;
+	float ppu = 20;
+	int targetPpu = ppu;
 	float interfaceScale;
-	const int minGridSize = 10, minPpu = 3, maxCopies = 1000, tickrateUpdatesPerSec = 5;
+	const int minGridSize = 10, minPpu = 3, maxCopies = 1000;
 	Texture textures[TOTAL_BLOCKS];
-	const int TileTextureSize = 20;
+	const int TileTextureSize = 32;
 	int selectedBlock = WIRE;
 	int selectedPos = 0, copyIndex = 0;
 	vector<pair<vector<Text>, int>> options;
@@ -74,8 +75,8 @@ class Grid
 	bool isSourceInQ(Vector2i pos);
 	void getInputs(vector<bool> &inputs, Vector2i pos);
 	Vector2i neighbour(Vector2i pos, int i);
-	Vector2i ptc(Vector2i pix, float ppuLocal = 0);
-	Vector2i ctp(Vector2i coords, float ppuLocal = 0);
+	Vector2i ptc(Vector2i pix);
+	Vector2i ctp(Vector2i coords);
 	bool Or(vector<bool>& vals);
 	bool And(vector<bool>& vals);
 	bool Xor (vector<bool> & vals);
@@ -105,12 +106,14 @@ class Grid
 	//void getQuad(VertexArray &quadint, int id, Vector2f pos, float ppuLocal);
 	IntRect getRectById(int id);
 public:
-	Grid(RenderWindow& window, int tps);
+	Grid(RenderWindow& w, int tps, int fps);
 	~Grid();
 	int sizeX()const { return size.x; }
 	int sizey()const { return size.y; }
 	void print();
 	void tick();
+	void setTps(int tps) { tickTimeMicros = microseconds(1000000 / tps); }
+	void setFps(int fps) { frameTimeMicros = microseconds(1000000 / fps); }
 	void scroll(int delta);
 	void rightCLick(Vector2i pos);
 	void middleClick(Vector2i pos);
@@ -132,6 +135,6 @@ public:
 	}
 	inline void scale(int delta)
 	{
-		targetPpu = max(targetPpu + int(delta + delta * sqrt(targetPpu) * int(log10(targetPpu))), float(minPpu));
+		targetPpu = max(targetPpu + int(delta + delta * sqrt(targetPpu) * int(log10(targetPpu))), minPpu);
 	}
 };
