@@ -245,7 +245,11 @@ void Grid::updateWires(pair<Vector2i, int> param)
 					tempPos = neighbour(updatedWires[i], j);
 					if(isInBounds(tempPos))
 						if (isGate(tempPos) && !isSourceInQ(tempPos))
+						{
+							sourceQMutex.lock();
 							sourceUpdateQ.push_back(tempPos);
+							sourceQMutex.unlock();
+						}
 				}
 			}
 		}
@@ -256,7 +260,6 @@ void Grid::updateWires(pair<Vector2i, int> param)
 		}
 		m_grid[updatedWires[i].x][updatedWires[i].y].state = isActive;
 	}
-	
 }
 
 inline bool Grid::isWire(Vector2i pos)
@@ -410,7 +413,17 @@ void Grid::adjustCamPos()
 	camPos.y = max(camPos.y, -float(window.getSize().y / 2) / float(ppu));
 }
 
-Grid::Grid(RenderWindow& w, int tps, int fps): window(w)
+void tunTick(Grid* grid)
+{
+	grid->tick();
+}
+
+void runScreen(Grid * grid)
+{
+	grid->print();
+}
+
+Grid::Grid(RenderWindow& w, int tps, int fps): window(w), screenThread(runScreen, this), tickThread(tunTick, this)
 {
 	window.create(VideoMode::getFullscreenModes()[0], "Make it true", Style::Fullscreen);
 	interfaceScale = window.getSize().x / 960.0;
@@ -496,6 +509,9 @@ Grid::Grid(RenderWindow& w, int tps, int fps): window(w)
 			}
 		}
 	}
+
+	screenThread.launch();
+	tickThread.launch();
 }
 
 Grid::~Grid()
@@ -512,6 +528,8 @@ Grid::~Grid()
 	for (int i = 0; i < selectSize.x; i++)
 		delete[] selectBuf[i];
 	delete[] selectBuf;
+	tickThread.wait();
+	screenThread.wait();
 }
 
 void multiplyColours(Sprite& s, Vector3f&& c1)
@@ -743,9 +761,12 @@ void Grid::tick()
 			{
 				ticksHappen = false;
 			}
+			
+			sourceQMutex.lock();
 			for (int i = 0; i < sourceUpdateQ.size(); i++)
 			{
 				pos = sourceUpdateQ[i];
+
 				getInputs(inputs, pos);
 				prevState = at(pos).state;
 				switch (at(pos).id)
@@ -777,6 +798,7 @@ void Grid::tick()
 				if (state != prevState)
 				{
 					m_grid[pos.x][pos.y].state = state;
+					wireQMutex.lock();
 					for (int i = 0; i < 4; i++)
 					{
 						tempPos = neighbour(pos, i);
@@ -784,14 +806,19 @@ void Grid::tick()
 							if (isConduction(pos, tempPos))
 								addWireToUpdateQ(tempPos, i);
 					}
+					wireQMutex.unlock();
 				}
 			}
 			sourceUpdateQ.clear();
+			sourceQMutex.unlock();
+
+			wireQMutex.lock();
 			while (!wireUpdateQ.empty())
 			{
 				updateWires(wireUpdateQ.front());
 				wireUpdateQ.pop_front();
 			}
+			wireQMutex.unlock();
 			tickUpdatePoints.clear();
 			ticks++;
 			
@@ -808,6 +835,8 @@ void Grid::tick()
 			if (!settings[TIMELAPSE])
 				sleep(tickTimeMicros - tpsClock.getElapsedTime());
 		}
+		else
+			sleep(milliseconds(100));
 	}
 }
 
@@ -840,8 +869,12 @@ void Grid::rightCLick(Vector2i pos)
 		at(pos) = Tile(selectedBlock, false);
 
 		if (isGate(pos))
+		{
+			sourceQMutex.lock();
 			sourceUpdateQ.push_back(pos);
-
+			sourceQMutex.unlock();
+		}
+		wireQMutex.lock();
 		for (int i = 0; i < 4; i++)
 		{
 			tempPos = neighbour(pos, i);
@@ -849,9 +882,12 @@ void Grid::rightCLick(Vector2i pos)
 				if (isConduction(pos, tempPos))
 					addWireToUpdateQ(tempPos, i);
 		}
+		wireQMutex.unlock();
 		break;
 	case SWITCH:
+		sourceQMutex.lock();
 		sourceUpdateQ.push_back(pos);
+		sourceQMutex.unlock();
 		break;
 	}
 }
@@ -880,6 +916,7 @@ void Grid::leftClick(Vector2i pos, bool alternative)
 	if (at(pos).id != VOID)
 	{
 		unsaved = true;
+		wireQMutex.lock();
 		for (int i = 0; i < 4; i++)
 		{
 			tempPos = neighbour(pos, i);
@@ -887,6 +924,7 @@ void Grid::leftClick(Vector2i pos, bool alternative)
 				if (isWire(tempPos) || isInput(tempPos))
 					addWireToUpdateQ(tempPos, i);
 		}
+		wireQMutex.unlock();
 		at(pos).state = false;
 		at(pos).id = VOID;
 	}
@@ -935,7 +973,6 @@ void Grid::copy(Vector2i pos, bool mirrorH, bool mirrorV)
 		return;
 	selectOffset = pos1 - pos;
 	selectedPos = 0;
-
 	for (int i = 0; i < selectSize.x; i++)
 		delete[] selectBuf[i];
 	delete[] selectBuf;

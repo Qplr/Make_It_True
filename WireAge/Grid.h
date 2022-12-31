@@ -105,6 +105,8 @@ class Grid
 	void adjustCamPos();
 	//void getQuad(VertexArray &quadint, int id, Vector2f pos, float ppuLocal);
 	IntRect getRectById(int id);
+	Mutex wireQMutex, sourceQMutex;
+	Thread screenThread, tickThread;
 public:
 	Grid(RenderWindow& w, int tps, int fps);
 	~Grid();

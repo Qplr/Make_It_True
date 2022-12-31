@@ -4,18 +4,9 @@
 volatile bool paused = false, timelapse = false;
 RenderWindow window;
 Grid grid(window, 10, 144);
-void coreW()
-{
-	grid.tick();
-}
-void screenW()
-{
-	grid.print();
-}
 inline float vectorLength(Vector2i v) { return sqrt(v.x * v.x + v.y * v.y); }
 int WinMain()
 {
-	thread core(coreW), screen(screenW);
 	window.setKeyRepeatEnabled(false);
 	window.setActive(false);
 
@@ -111,6 +102,4 @@ int WinMain()
 				}
 		}
 	}
-	core.join();
-	screen.join();
 }
