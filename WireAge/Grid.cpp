@@ -569,8 +569,8 @@ void Grid::print()
 		for (int i = 0; i < unitsPerScreen.x; i++)
 			for (int j = 0; j < unitsPerScreen.y; j++)
 			{
-				temp.x = i + camPosLocal.x - 0.001;
-				temp.y = j + camPosLocal.y - 0.001;
+				temp.x = i + camPosLocal.x;// -0.001;
+				temp.y = j + camPosLocal.y;// -0.001;
 				if (isInBounds(temp))
 				{	
 					if (bufferOverlay && temp.x - mousePosUnits.x - selectOffset.x < selectSize.x && temp.x - mousePosUnits.x - selectOffset.x >= 0 && temp.y - mousePosUnits.y - selectOffset.y < selectSize.y && temp.y - mousePosUnits.y - selectOffset.y >= 0)
